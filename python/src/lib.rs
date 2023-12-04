@@ -96,6 +96,7 @@ impl From<ExplainedText> for PyExplainedText {
 }
 
 #[pyfunction]
+#[pyo3(signature = (text, config=None))]
 pub fn fix_text(text: &str, config: Option<PyTextFixerConfig>) -> String {
     let config = config.map(PyTextFixerConfig::into);
     let config_ref = config.as_ref();
@@ -104,6 +105,7 @@ pub fn fix_text(text: &str, config: Option<PyTextFixerConfig>) -> String {
 }
 
 #[pyfunction]
+#[pyo3(signature = (text, explain, config=None))]
 pub fn fix_and_explain(
     text: &str,
     explain: bool,
@@ -115,7 +117,6 @@ pub fn fix_and_explain(
     ::plsfix::fix_and_explain(text, explain, config_ref).into()
 }
 
-/// A Python module implemented in Rust.
 #[pymodule]
 fn plsfix(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fix_text, m)?)?;

@@ -7,6 +7,8 @@ mod fixes;
 
 mod codecs;
 
+use std::cmp::min;
+
 use badness::is_bad;
 use chardata::possible_encoding;
 use chardata::ALTERED_UTF8_RE;
@@ -244,13 +246,13 @@ pub fn fix_text(text: &str, config: Option<&TextFixerConfig>) -> String {
     let mut pos = 0;
 
     while pos < text.len() {
-        let textbreak = match text[pos..].find("\n") {
-            Some(idx) => idx + 1,
+        let mut textbreak = match text[pos..].find("\n") {
+            Some(idx) => pos + idx + 1,
             None => text.len(),
         };
 
         if (textbreak - pos) > config.max_decode_length as usize {
-            pos = pos + config.max_decode_length as usize;
+            textbreak = min(pos + config.max_decode_length as usize, text.len());
         }
 
         let segment = &text[pos..textbreak];

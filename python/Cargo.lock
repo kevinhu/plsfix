@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "plsfix-py"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "plsfix",
  "pyo3",
