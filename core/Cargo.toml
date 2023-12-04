@@ -1,0 +1,22 @@
+[package]
+name = "plsfix"
+version = "0.1.1"
+edition = "2021"
+license = "MIT"
+description = "Text cleaner upper"
+repository = "https://github.com/kevinhu/plsfix"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+encoding = "0.2.33"
+encoding_rs = "0.8.33"
+fancy-regex = "0.12.0"
+html-escape = "0.2.13"
+lazy_static = "1.4.0"
+oem_cp = { version = "2.0.0", features = ["alloc"] }
+regex = "1.10.2"
+unicode-normalization = "0.1.22"
+
+[dev-dependencies]
+pretty_assertions = "0.4.0"
