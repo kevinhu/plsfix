@@ -23,7 +23,7 @@ class PyExplainedText:
     text: str
     steps: Optional[List[PyExplanationStep]]
 
-def fix_text(text: str, config: Optional[PyTextFixerConfig]) -> str: ...
+def fix_text(text: str, config: Optional[PyTextFixerConfig] = None) -> str: ...
 def fix_and_explain(
-    text: str, explain: bool, config: Optional[PyTextFixerConfig]
+    text: str, explain: bool, config: Optional[PyTextFixerConfig] = None
 ) -> PyExplainedText: ...
