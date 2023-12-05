@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "plsfix"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "encoding",
  "encoding_rs",

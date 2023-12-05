@@ -7,6 +7,7 @@ mod fixes;
 
 mod codecs;
 
+use std::borrow::Cow;
 use std::cmp::min;
 
 use badness::is_bad;
@@ -294,14 +295,14 @@ pub struct ExplainedText {
     pub steps: Option<Vec<ExplanationStep>>,
 }
 
-fn apply_step<F>(
+fn apply_step<'a, F>(
     f: F,
-    text: &str,
+    text: &'a str,
     step: ExplanationStep,
     steps: &mut Option<Vec<ExplanationStep>>,
-) -> String
+) -> Cow<'a, str>
 where
-    F: Fn(&str) -> String,
+    F: Fn(&'a str) -> Cow<'a, str>,
 {
     let res = f(text);
     if res != text {
@@ -330,118 +331,141 @@ pub fn fix_and_explain(
         None => TextFixerConfig::default(),
     };
 
-    // let mut steps: Vec<ExplanationStep> = Vec::new();
     let mut steps: Option<Vec<ExplanationStep>> = if explain { Some(Vec::new()) } else { None };
 
     for _ in 0..MAX_ATTEMPTS {
-        let origtext = text.to_string();
+        let temp = unescape_html(&text);
 
-        text = unescape_html(text);
-
-        if config.fix_encoding {
-            let encoding_fixed = fix_encoding_and_explain(&text, explain, Some(&config));
-            text = encoding_fixed.text;
+        let temp = if config.fix_encoding {
+            let encoding_fixed = fix_encoding_and_explain(&temp, explain, Some(&config));
             if let Some(s) = &mut steps {
                 s.extend(encoding_fixed.steps.unwrap_or(Vec::new()));
             }
-        }
+            encoding_fixed.text.into()
+        } else {
+            temp
+        };
 
-        if config.fix_c1_controls {
-            text = apply_step(
+        let temp = if config.fix_c1_controls {
+            apply_step(
                 fix_c1_controls,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("fix_c1_controls"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if config.fix_latin_ligatures {
-            text = apply_step(
+        let temp = if config.fix_latin_ligatures {
+            apply_step(
                 fix_latin_ligatures,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("fix_latin_ligatures"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if config.fix_character_width {
-            text = apply_step(
+        let temp = if config.fix_character_width {
+            apply_step(
                 fix_character_width,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("fix_character_width"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if config.uncurl_quotes {
-            text = apply_step(
+        let temp = if config.uncurl_quotes {
+            apply_step(
                 uncurl_quotes,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("uncurl_quotes"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if config.fix_line_breaks {
-            text = apply_step(
+        let temp = if config.fix_line_breaks {
+            apply_step(
                 fix_line_breaks,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("fix_line_breaks"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if config.remove_terminal_escapes {
-            text = apply_step(
+        let temp = if config.remove_terminal_escapes {
+            apply_step(
                 remove_terminal_escapes,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("remove_terminal_escapes"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if config.remove_control_chars {
-            text = apply_step(
+        let temp = if config.remove_control_chars {
+            apply_step(
                 remove_control_chars,
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("remove_control_chars"),
                 },
                 &mut steps,
-            );
-        }
+            )
+        } else {
+            temp
+        };
 
-        if let Some(normalization) = &config.normalization {
-            text = apply_step(
-                |t| match normalization {
-                    Normalization::NFC => t.nfc().collect::<String>(),
-                    Normalization::NFKC => t.nfkc().collect::<String>(),
-                    Normalization::NFD => t.nfd().collect::<String>(),
-                    Normalization::NFKD => t.nfkd().collect::<String>(),
+        let temp = if let Some(normalization) = &config.normalization {
+            apply_step(
+                |t| {
+                    match normalization {
+                        Normalization::NFC => t.nfc().collect::<String>(),
+                        Normalization::NFKC => t.nfkc().collect::<String>(),
+                        Normalization::NFD => t.nfd().collect::<String>(),
+                        Normalization::NFKD => t.nfkd().collect::<String>(),
+                    }
+                    .into()
                 },
-                &text,
+                &temp,
                 ExplanationStep {
                     transformation: String::from("normalize"),
                 },
                 &mut steps,
             )
+        } else {
+            temp
+        };
+
+        if temp == text {
+            return ExplainedText {
+                text: text.into(),
+                steps,
+            };
         }
 
-        if text == origtext {
-            return ExplainedText { text, steps };
-        }
+        text = temp.into();
     }
 
     ExplainedText { text, steps }
@@ -660,7 +684,10 @@ fn _fix_encoding_one_step_and_explain(
         } else {
             None
         };
-        return ExplainedText { text: fixed, steps };
+        return ExplainedText {
+            text: fixed.into(),
+            steps,
+        };
     }
 
     // The cases that remain are mixups between two different single-byte

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     badness::is_bad,
     chardata::{
@@ -9,6 +7,8 @@ use crate::{
     codecs::sloppy::{Codec, LATIN_1, SLOPPY_WINDOWS_1252},
     fix_encoding_and_explain,
 };
+use regex::{Regex, Replacer};
+use std::{borrow::Cow, collections::HashMap};
 
 fn _unescape_fixup(capture: &regex::Captures) -> String {
     /*
@@ -32,7 +32,7 @@ fn _unescape_fixup(capture: &regex::Captures) -> String {
     }
 }
 
-pub fn unescape_html(text: String) -> String {
+pub fn unescape_html(text: &str) -> Cow<str> {
     /*
     Decode HTML entities and character references, including some nonstandard
     ones written in all-caps.
@@ -48,35 +48,76 @@ pub fn unescape_html(text: String) -> String {
     case-sensitive in complicated ways.
 
     */
-    HTML_ENTITY_RE
-        .replace_all(&text, |caps: &regex::Captures| {
-            _unescape_fixup(caps.to_owned())
-        })
-        .into()
+    HTML_ENTITY_RE.replace_all(&text, |caps: &regex::Captures| _unescape_fixup(caps))
 }
 
 lazy_static! {
     static ref ANSI_RE: regex::Regex = regex::Regex::new("\033\\[((?:\\d|;)*)([a-zA-Z])").unwrap();
 }
 
-pub fn remove_terminal_escapes(text: &str) -> String {
+/// Extension methods for `Regex` that operate on `Cow<str>` instead of `&str`.
+pub trait RegexCowExt {
+    /// [`Regex::replace`], but taking text as `Cow<str>` instead of `&str`.
+    fn replace_cow<'t, R: Replacer>(&self, text: Cow<'t, str>, rep: R) -> Cow<'t, str>;
+
+    /// [`Regex::replace_all`], but taking text as `Cow<str>` instead of `&str`.
+    fn replace_all_cow<'t, R: Replacer>(&self, text: Cow<'t, str>, rep: R) -> Cow<'t, str>;
+
+    /// [`Regex::replacen`], but taking text as `Cow<str>` instead of `&str`.
+    fn replacen_cow<'t, R: Replacer>(
+        &self,
+        text: Cow<'t, str>,
+        limit: usize,
+        rep: R,
+    ) -> Cow<'t, str>;
+}
+
+impl RegexCowExt for Regex {
+    fn replace_cow<'t, R: Replacer>(&self, text: Cow<'t, str>, rep: R) -> Cow<'t, str> {
+        match self.replace(&text, rep) {
+            Cow::Owned(result) => Cow::Owned(result),
+            Cow::Borrowed(_) => text,
+        }
+    }
+
+    fn replace_all_cow<'t, R: Replacer>(&self, text: Cow<'t, str>, rep: R) -> Cow<'t, str> {
+        match self.replace_all(&text, rep) {
+            Cow::Owned(result) => Cow::Owned(result),
+            Cow::Borrowed(_) => text,
+        }
+    }
+
+    fn replacen_cow<'t, R: Replacer>(
+        &self,
+        text: Cow<'t, str>,
+        limit: usize,
+        rep: R,
+    ) -> Cow<'t, str> {
+        match self.replacen(&text, limit, rep) {
+            Cow::Owned(result) => Cow::Owned(result),
+            Cow::Borrowed(_) => text,
+        }
+    }
+}
+
+pub fn remove_terminal_escapes(text: &str) -> Cow<str> {
     /*
     Strip out "ANSI" terminal escape sequences, such as those that produce
     colored text on Unix.
     */
-    ANSI_RE.replace_all(&text, "").into()
+    ANSI_RE.replace_all(&text, "")
 }
 
-pub fn uncurl_quotes(text: &str) -> String {
+pub fn uncurl_quotes(text: &str) -> Cow<str> {
     /*
     Replace curly quotation marks with straight equivalents.
     */
     SINGLE_QUOTE_RE
-        .replace_all(&DOUBLE_QUOTE_RE.replace_all(&text, "\"").to_string(), "'")
+        .replace_all_cow(DOUBLE_QUOTE_RE.replace_all(&text, "\""), "'")
         .into()
 }
 
-pub fn fix_latin_ligatures(text: &str) -> String {
+pub fn fix_latin_ligatures(text: &str) -> Cow<str> {
     /*
     Replace single-character ligatures of Latin letters, such as 'ﬁ', with the
     characters that they contain, as in 'fi'. Latin ligatures are usually not
@@ -88,19 +129,23 @@ pub fn fix_latin_ligatures(text: &str) -> String {
     and removing them may lose information. If you want to take apart nearly
     all ligatures, use NFKC normalization.
     */
-    let mut result = String::new();
+    if text.chars().any(|ch| LIGATURES.get(&(ch as u32)).is_some()) {
+        let mut result = String::new();
 
-    for ch in text.chars() {
-        match LIGATURES.get(&(ch as u32)) {
-            Some(replacement) => result.push_str(replacement),
-            None => result.push(ch),
+        for ch in text.chars() {
+            match LIGATURES.get(&(ch as u32)) {
+                Some(replacement) => result.push_str(replacement),
+                None => result.push(ch),
+            }
         }
-    }
 
-    result
+        Cow::Owned(result)
+    } else {
+        Cow::Borrowed(text)
+    }
 }
 
-pub fn fix_character_width(text: &str) -> String {
+pub fn fix_character_width(text: &str) -> Cow<str> {
     /*
     The ASCII characters, katakana, and Hangul characters have alternate
     "halfwidth" or "fullwidth" forms that help text line up in a grid.
@@ -112,19 +157,23 @@ pub fn fix_character_width(text: &str) -> String {
     Note that this replaces the ideographic space, U+3000, with the ASCII
     space, U+20.
     */
+    if !text.chars().any(|ch| WIDTH_MAP.contains_key(&(ch as u32))) {
+        return Cow::Borrowed(text);
+    }
+
     let mut result = String::new();
 
     for ch in text.chars() {
         match WIDTH_MAP.get(&(ch as u32)) {
-            Some(replacement) => result.push(replacement.clone()),
+            Some(replacement) => result.push(*replacement),
             None => result.push(ch),
         }
     }
 
-    result
+    Cow::Owned(result)
 }
 
-pub fn fix_line_breaks(text: &str) -> String {
+pub fn fix_line_breaks(text: &str) -> Cow<str> {
     /*
     Convert all line breaks to Unix style.
 
@@ -148,9 +197,10 @@ pub fn fix_line_breaks(text: &str) -> String {
         .replace("\u{2028}", "\n")
         .replace("\u{2029}", "\n")
         .replace("\u{0085}", "\n")
+        .into()
 }
 
-pub fn remove_control_chars(text: &str) -> String {
+pub fn remove_control_chars(text: &str) -> Cow<str> {
     /*
     Remove various control characters that you probably didn't intend to be in
     your text. Many of these characters appear in the table of "Characters not
@@ -180,17 +230,19 @@ pub fn remove_control_chars(text: &str) -> String {
     - Tag characters, because they are now used in emoji sequences such as
       "Flag of Wales"
       */
+    if !text.chars().any(|ch| CONTROL_CHARS.contains(&(ch as u32))) {
+        return Cow::Borrowed(text);
+    }
+
     let mut result = String::new();
 
     for ch in text.chars() {
-        if CONTROL_CHARS.contains(&(ch as u32)) {
-            continue;
-        } else {
+        if !CONTROL_CHARS.contains(&(ch as u32)) {
             result.push(ch);
         }
     }
 
-    result
+    Cow::Owned(result)
 }
 
 lazy_static! {
@@ -383,13 +435,12 @@ fn _c1_fixer(mat: &fancy_regex::Captures) -> String {
     }
 }
 
-pub fn fix_c1_controls(text: &str) -> String {
+pub fn fix_c1_controls(text: &str) -> Cow<str> {
     /*
     If text still contains C1 control characters, treat them as their
     Windows-1252 equivalents. This matches what Web browsers do.
     */
-    let result = C1_CONTROL_RE.replace_all(text, |caps: &fancy_regex::Captures| _c1_fixer(&caps));
-    result.to_string()
+    C1_CONTROL_RE.replace_all(text, |caps: &fancy_regex::Captures| _c1_fixer(&caps))
 }
 
 #[cfg(test)]
@@ -399,64 +450,58 @@ mod tests {
 
     #[test]
     fn test_uncode_html_tag() {
-        assert_eq!(unescape_html(String::from("&lt;tag&gt;")), "<tag>");
+        assert_eq!(unescape_html("&lt;tag&gt;"), "<tag>");
     }
 
     #[test]
     fn test_uncode_html_special_characters() {
         assert_eq!(
-            unescape_html(String::from("&Jscr;ohn &HilbertSpace;ancock")),
+            unescape_html("&Jscr;ohn &HilbertSpace;ancock"),
             "𝒥ohn ℋancock"
         );
     }
 
     #[test]
     fn test_uncode_html_checkmark() {
-        assert_eq!(unescape_html(String::from("&checkmark;")), "✓");
+        assert_eq!(unescape_html("&checkmark;"), "✓");
     }
 
     #[test]
     fn test_uncode_html_accented_letter_past_tense() {
-        assert_eq!(unescape_html(String::from("P&eacute;rez")), "Pérez");
+        assert_eq!(unescape_html("P&eacute;rez"), "Pérez");
     }
 
     #[test]
     fn test_uncode_html_all_caps() {
-        assert_eq!(unescape_html(String::from("P&EACUTE;REZ")), "PÉREZ");
+        assert_eq!(unescape_html("P&EACUTE;REZ"), "PÉREZ");
     }
 
     #[test]
     fn test_uncode_html_german_character() {
-        assert_eq!(
-            unescape_html(String::from("BUNDESSTRA&SZLIG;E")),
-            "BUNDESSTRASSE"
-        );
+        assert_eq!(unescape_html("BUNDESSTRA&SZLIG;E"), "BUNDESSTRASSE");
     }
 
     #[test]
     fn test_uncode_html_variations_of_ntilde() {
         assert_eq!(
-            unescape_html(String::from("&ntilde; &Ntilde; &NTILDE; &nTILDE;")),
+            unescape_html("&ntilde; &Ntilde; &NTILDE; &nTILDE;"),
             "ñ Ñ Ñ &nTILDE;"
         );
     }
 
     #[test]
     fn test_uncode_html_ampersand() {
-        assert_eq!(unescape_html(String::from("&amp;")), "&");
+        assert_eq!(unescape_html("&amp;"), "&");
     }
 
     #[test]
     fn test_uncode_html_hash() {
-        assert_eq!(unescape_html(String::from("&#35;")), "#");
+        assert_eq!(unescape_html("&#35;"), "#");
     }
 
     #[test]
     fn test_uncode_html_non_html_string() {
-        assert_eq!(
-            unescape_html(String::from("non_html_string")),
-            "non_html_string"
-        );
+        assert_eq!(unescape_html("non_html_string"), "non_html_string");
     }
 
     #[test]
