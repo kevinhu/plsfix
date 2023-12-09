@@ -1,3 +1,5 @@
+use std::panic;
+
 use ::plsfix::{ExplainedText, ExplanationStep, Normalization, TextFixerConfig};
 use pyo3::prelude::*;
 
@@ -101,7 +103,12 @@ pub fn fix_text(text: &str, config: Option<PyTextFixerConfig>) -> String {
     let config = config.map(PyTextFixerConfig::into);
     let config_ref = config.as_ref();
 
-    ::plsfix::fix_text(text, config_ref)
+    let result = panic::catch_unwind(|| ::plsfix::fix_text(text, config_ref));
+
+    match result {
+        Ok(result) => result,
+        Err(_) => text.to_string(),
+    }
 }
 
 #[pyfunction]
@@ -114,7 +121,15 @@ pub fn fix_and_explain(
     let config = config.map(PyTextFixerConfig::into);
     let config_ref = config.as_ref();
 
-    ::plsfix::fix_and_explain(text, explain, config_ref).into()
+    let result = panic::catch_unwind(|| ::plsfix::fix_and_explain(text, explain, config_ref));
+
+    match result {
+        Ok(result) => result.into(),
+        Err(_) => PyExplainedText {
+            text: text.to_string(),
+            steps: None,
+        },
+    }
 }
 
 #[pymodule]
