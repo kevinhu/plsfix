@@ -14,7 +14,6 @@ use badness::is_bad;
 use chardata::possible_encoding;
 use chardata::ALTERED_UTF8_RE;
 use chardata::CHARMAP_ENCODINGS;
-use chardata::UTF8_DETECTOR_RE;
 use codecs::sloppy;
 use codecs::sloppy::Codec;
 use codecs::sloppy::LATIN_1;
@@ -31,6 +30,8 @@ use fixes::replace_lossy_sequences;
 use fixes::restore_byte_a0;
 use fixes::uncurl_quotes;
 use fixes::unescape_html;
+use icu::normalizer::ComposingNormalizer;
+use icu::normalizer::DecomposingNormalizer;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::codecs::sloppy::CodecType;
@@ -439,14 +440,11 @@ pub fn fix_and_explain(
 
         let temp = if let Some(normalization) = &config.normalization {
             apply_step(
-                |t| {
-                    match normalization {
-                        Normalization::NFC => t.nfc().collect::<String>(),
-                        Normalization::NFKC => t.nfkc().collect::<String>(),
-                        Normalization::NFD => t.nfd().collect::<String>(),
-                        Normalization::NFKD => t.nfkd().collect::<String>(),
-                    }
-                    .into()
+                |t| match normalization {
+                    Normalization::NFC => ComposingNormalizer::new_nfc().normalize(t).into(),
+                    Normalization::NFD => DecomposingNormalizer::new_nfd().normalize(t).into(),
+                    Normalization::NFKD => DecomposingNormalizer::new_nfkd().normalize(t).into(),
+                    Normalization::NFKC => ComposingNormalizer::new_nfkc().normalize(t).into(),
                 },
                 &temp,
                 ExplanationStep {
@@ -632,10 +630,10 @@ fn _fix_encoding_one_step_and_explain(
     }
 
     // Look for a-hat-euro sequences that remain, and fix them in isolation.
-    if config.decode_inconsistent_utf8 && UTF8_DETECTOR_RE.is_match(&text).unwrap_or(false) {
+    if config.decode_inconsistent_utf8 {
         let fixed = decode_inconsistent_utf8(&text);
         if fixed != text {
-            text = fixed;
+            text = fixed.into();
         }
     }
 

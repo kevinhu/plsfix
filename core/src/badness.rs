@@ -11,11 +11,11 @@ identify sequences and contexts of these characters that are much more likely
 to be mojibake than intended strings, such as lowercase accented letters
 followed immediately by currency symbols.
 */
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 lazy_static! {
-    static ref MOJIBAKE_CATEGORIES: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
+    static ref MOJIBAKE_CATEGORIES: FxHashMap<&'static str, &'static str> = {
+        let mut m = FxHashMap::default();
         m.insert("common", "\u{a0}\u{ad}\u{b7}\u{b4}\u{2013}\u{2014}\u{2015}\u{2026}\u{2019}");
         m.insert("c1", "\u{80}\u{81}\u{82}\u{83}\u{84}\u{85}\u{86}\u{87}\u{88}\u{89}\u{8a}\u{8b}\u{8c}\u{8d}\u{8e}\u{8f}\u{90}\u{91}\u{92}\u{93}\u{94}\u{95}\u{96}\u{97}\u{98}\u{99}\u{9a}\u{9b}\u{9c}\u{9d}\u{9e}\u{9f}");
         m.insert("bad", "¦¤¨¬¯¶§¸ƒˆˇ˘˛˜†‡‰⌐◊�ªº");

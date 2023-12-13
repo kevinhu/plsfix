@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use unicode_normalization::UnicodeNormalization;
 
 use regex::Regex;
@@ -47,8 +47,8 @@ lazy_static! {
     the 'ascii' detector, which of course just determines if all characters
     are between U+0000 and U+007F.
     */
-    pub static ref ENCODING_REGEXES: HashMap<CodecType, regex::bytes::Regex> = {
-        let mut encoding_regexes: HashMap<CodecType, regex::bytes::Regex> = HashMap::new();
+    pub static ref ENCODING_REGEXES: FxHashMap<CodecType, regex::bytes::Regex> = {
+        let mut encoding_regexes: FxHashMap<CodecType, regex::bytes::Regex> = FxHashMap::default();
 
         encoding_regexes.insert(
             CodecType::Ascii,
@@ -102,8 +102,8 @@ lazy_static! {
     };
 
     pub static ref HTML_ENTITY_RE: Regex = Regex::new(r"&#?[0-9A-Za-z]{1,24};").unwrap();
-    pub static ref HTML_ENTITIES: HashMap<String, String> = {
-        let mut entities: HashMap<String, String> = HashMap::new();
+    pub static ref HTML_ENTITIES: FxHashMap<String, String> = {
+        let mut entities: FxHashMap<String, String> = FxHashMap::default();
 
         /*
         Create a dictionary based on the built-in HTML5 entity dictionary.
@@ -129,13 +129,13 @@ lazy_static! {
         entities
     };
 
-    pub static ref CONTROL_CHARS: HashSet<u32> ={
+    pub static ref CONTROL_CHARS: FxHashSet<u32> ={
         /*
         Build a translate mapping that strips likely-unintended control characters.
         See `plsfix::fixes::remove_control_chars` for a description of these
         codepoint ranges and why they should be removed.
         */
-        let mut control_chars: HashSet<u32> = HashSet::new();
+        let mut control_chars: FxHashSet<u32> = FxHashSet::default();
 
         let ranges = vec![
             0x00..0x09,
@@ -257,8 +257,8 @@ lazy_static! {
     Ligatures and digraphs may also be separated by NFKC normalization, but that
     is sometimes more normalization than you want.
     */
-    pub static ref LIGATURES: HashMap<u32, &'static str> = {
-        let mut ligatures: HashMap<u32, &str> = HashMap::new();
+    pub static ref LIGATURES: FxHashMap<u32, &'static str> = {
+        let mut ligatures: FxHashMap<u32, &str> = FxHashMap::default();
 
         ligatures.insert('Ĳ' as u32, "IJ"); // Dutch ligatures
         ligatures.insert('ĳ' as u32, "ij");
@@ -286,8 +286,8 @@ lazy_static! {
         ligatures
     };
 
-    pub static ref WIDTH_MAP: HashMap<u32, char> = {
-        let mut width_map: HashMap<u32, char> = HashMap::new();
+    pub static ref WIDTH_MAP: FxHashMap<u32, char> = {
+        let mut width_map: FxHashMap<u32, char> = FxHashMap::default();
         // Though it's not listed as a fullwidth character, we'll want to convert
         // U+3000 IDEOGRAPHIC SPACE to U+20 SPACE on the same principle, so start
         // with that in the dictionary.
@@ -295,7 +295,7 @@ lazy_static! {
 
         for i in 0xFF01..0xFFF0 {
             if let Some(ci) = std::char::from_u32(i) {
-                let alternate = ci.nfkc().collect::<String>().chars().next();
+                let alternate = ci.nfkc().next();
                 if let Some(c) = alternate {
                     if c != ci {
                         width_map.insert(i, c);

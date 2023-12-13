@@ -8,7 +8,8 @@ use crate::{
     fix_encoding_and_explain,
 };
 use regex::{Regex, Replacer};
-use std::{borrow::Cow, collections::HashMap};
+use rustc_hash::FxHashMap;
+use std::borrow::Cow;
 
 fn _unescape_fixup(capture: &regex::Captures) -> String {
     /*
@@ -173,6 +174,10 @@ pub fn fix_character_width(text: &str) -> Cow<str> {
     Cow::Owned(result)
 }
 
+lazy_static! {
+    static ref LINE_BREAK_RE: Regex = Regex::new(r"\r\n|\r|\u{2028}|\u{2029}|\u{0085}").unwrap();
+}
+
 pub fn fix_line_breaks(text: &str) -> Cow<str> {
     /*
     Convert all line breaks to Unix style.
@@ -192,12 +197,7 @@ pub fn fix_line_breaks(text: &str) -> Cow<str> {
     usually won't show up if `fix_encoding` is also being run.
     \\x85 is very common mojibake for \\u2026, HORIZONTAL ELLIPSIS.
     */
-    text.replace("\r\n", "\n")
-        .replace("\r", "\n")
-        .replace("\u{2028}", "\n")
-        .replace("\u{2029}", "\n")
-        .replace("\u{0085}", "\n")
-        .into()
+    LINE_BREAK_RE.replace_all(text, "\n")
 }
 
 pub fn remove_control_chars(text: &str) -> Cow<str> {
@@ -362,8 +362,8 @@ pub fn replace_lossy_sequences(byts: &Vec<u8>) -> Vec<u8> {
 }
 
 lazy_static! {
-    pub static ref C1_TO_WINDOWS: HashMap<u8, Vec<u8>> = {
-        let mut map: HashMap<u8, Vec<u8>> = HashMap::new();
+    pub static ref C1_TO_WINDOWS: FxHashMap<u8, Vec<u8>> = {
+        let mut map: FxHashMap<u8, Vec<u8>> = FxHashMap::default();
         map.insert(0x80, vec![0xe2, 0x82, 0xac]);
         map.insert(0x81, vec![0xc2, 0x81]);
         map.insert(0x82, vec![0xe2, 0x80, 0x9a]);
@@ -400,18 +400,16 @@ lazy_static! {
     };
 }
 
-pub fn decode_inconsistent_utf8(text: &str) -> String {
+pub fn decode_inconsistent_utf8(text: &str) -> Cow<str> {
     /*
     Sometimes, text from one encoding ends up embedded within text from a
     different one. This is common enough that we need to be able to fix it.
 
     This is used as a transcoder within `fix_encoding`.
     */
-    // let mut map: HashMap<String, String> = HashMap::new();
-    let result = text.to_string();
 
-    let result = UTF8_DETECTOR_RE.replace_all(&result, |mat: &fancy_regex::Captures| {
-        let substr = mat.get(0).unwrap().as_str().to_string();
+    let result = UTF8_DETECTOR_RE.replace_all(&text, |mat: &fancy_regex::Captures| {
+        let substr = mat.get(0).unwrap().as_str();
 
         if substr.len() < text.len() && is_bad(&substr) {
             let fixed = fix_encoding_and_explain(&substr, false, None);
@@ -421,7 +419,7 @@ pub fn decode_inconsistent_utf8(text: &str) -> String {
         }
     });
 
-    result.to_string()
+    result
 }
 
 fn _c1_fixer(mat: &fancy_regex::Captures) -> String {

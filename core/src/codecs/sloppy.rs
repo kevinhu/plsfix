@@ -62,7 +62,7 @@ use oem_cp::code_table::DECODING_TABLE_CP437;
 use oem_cp::code_table::ENCODING_TABLE_CP437;
 use oem_cp::decode_string_complete_table;
 use oem_cp::encode_string_checked;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 static REPLACEMENT_CHAR: char = '\u{FFFD}';
 
@@ -102,7 +102,7 @@ pub struct SloppyCodec {
     name: &'static str,
     codec_type: CodecType,
     decoded_chars: Vec<char>,
-    encoded_bytes: HashMap<char, u8>,
+    encoded_bytes: FxHashMap<char, u8>,
 }
 
 impl Codec for SloppyCodec {
@@ -254,7 +254,7 @@ fn make_sloppy_codec(
 
     // Get a list of what each byte would decode to in Latin-1.
     let mut sloppy_chars: Vec<char> = decode_latin1(&all_bytes).chars().collect();
-    let mut encoded_bytes: HashMap<char, u8> = HashMap::new();
+    let mut encoded_bytes: FxHashMap<char, u8> = FxHashMap::default();
 
     // Get a list of what they decode to in the given encoding. Use the
     // replacement character for unassigned bytes.
@@ -273,7 +273,7 @@ fn make_sloppy_codec(
     sloppy_chars[0x1A] = REPLACEMENT_CHAR;
 
     SloppyCodec {
-        name: &name.clone(),
+        name: &name,
         codec_type,
         decoded_chars: sloppy_chars,
         encoded_bytes,
