@@ -32,7 +32,6 @@ use fixes::uncurl_quotes;
 use fixes::unescape_html;
 use icu::normalizer::ComposingNormalizer;
 use icu::normalizer::DecomposingNormalizer;
-use unicode_normalization::UnicodeNormalization;
 
 use crate::codecs::sloppy::CodecType;
 

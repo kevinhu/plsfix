@@ -1,6 +1,6 @@
 [package]
 name = "plsfix"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 description = "Text cleaner upper"
@@ -11,7 +11,7 @@ repository = "https://github.com/kevinhu/plsfix"
 [dependencies]
 encoding = "0.2.33"
 encoding_rs = "0.8.33"
-fancy-regex = "0.12.0"
+fancy-regex = { version = "0.12.0", git = "https://github.com/kevinhu/fancy-regex.git" }
 html-escape = "0.2.13"
 icu = "1.4.0"
 lazy_static = "1.4.0"

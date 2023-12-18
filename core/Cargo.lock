@@ -156,11 +156,11 @@ dependencies = [
 [[package]]
 name = "fancy-regex"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7493d4c459da9f84325ad297371a6b2b8a162800873a22e3b6b6512e61d18c05"
+source = "git+https://github.com/kevinhu/fancy-regex.git#8494d42226aeb34c181dce0fe3bfb4e1953df00a"
 dependencies = [
  "bit-set",
- "regex",
+ "regex-automata 0.4.3",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -681,7 +681,7 @@ dependencies = [
 
 [[package]]
 name = "plsfix"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "encoding",
  "encoding_rs",
