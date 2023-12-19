@@ -741,7 +741,7 @@ dependencies = [
 
 [[package]]
 name = "plsfix"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "encoding",
  "encoding_rs",
@@ -757,7 +757,7 @@ dependencies = [
 
 [[package]]
 name = "plsfix-py"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "plsfix",
  "pyo3",
