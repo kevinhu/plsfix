@@ -133,7 +133,7 @@ pub fn fix_and_explain(
 }
 
 #[pymodule]
-fn plsfix(_py: Python, m: &PyModule) -> PyResult<()> {
+fn plsfix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fix_text, m)?)?;
     m.add_function(wrap_pyfunction!(fix_and_explain, m)?)?;
     Ok(())

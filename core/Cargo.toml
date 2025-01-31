@@ -1,6 +1,6 @@
 [package]
 name = "plsfix"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 license = "MIT"
 description = "Text cleaner upper"
@@ -10,18 +10,18 @@ repository = "https://github.com/kevinhu/plsfix"
 
 [dependencies]
 encoding = "0.2.33"
-encoding_rs = "0.8.33"
-fancy-regex = { version = "0.12.0", git = "https://github.com/kevinhu/fancy-regex.git" }
+encoding_rs = "0.8.35"
+fancy-regex = { version = "0.14.0" }
 html-escape = "0.2.13"
-icu = "1.4.0"
-lazy_static = "1.4.0"
+icu = "1.5.0"
+lazy_static = "1.5.0"
 oem_cp = { version = "2.0.0", features = ["alloc"] }
-regex = "1.10.2"
-rustc-hash = "1.1.0"
-unicode-normalization = { version = "0.1.22", default-features = false }
+regex = "1.11.1"
+rustc-hash = "2.1.0"
+unicode-normalization = { version = "0.1.24", default-features = false }
 
 [dev-dependencies]
-pretty_assertions = "0.4.0"
+pretty_assertions = "0.4.1"
 
 [profile.release]
 debug = true
