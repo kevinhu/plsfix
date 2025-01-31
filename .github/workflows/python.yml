@@ -38,7 +38,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux
+          name: wheels-linux-${{ matrix.target }}
           path: ./python/dist
 
   windows:
@@ -65,7 +65,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows
+          name: wheels-windows-${{ matrix.target }}
           path: ./python/dist
 
   macos:
@@ -91,7 +91,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos
+          name: wheels-macos-${{ matrix.target }}
           path: ./python/dist
 
   sdist:
